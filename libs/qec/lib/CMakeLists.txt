@@ -39,6 +39,7 @@ endif()
 set(QEC_SOURCES
   code.cpp
   decoder.cpp
+  dem.cpp
   detector_error_model.cpp
   experiments.cpp
   pcm_utils.cpp
@@ -95,6 +96,7 @@ target_link_libraries(${LIBRARY_NAME}
   PUBLIC 
     cudaqx-core
     cudaq::cudaq-operator
+    cudaq::cudaq-analysis
   PRIVATE
     cudaq::cudaq-common
 )
