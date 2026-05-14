@@ -51,7 +51,7 @@ gtest_discover_tests(test_qec)
 
 add_executable(test_dem_from_kernel test_dem_from_kernel.cpp)
 target_link_libraries(test_dem_from_kernel PRIVATE
-  GTest::gtest_main cudaq-qec cudaq::cudaq cudaq::cudaq-stim-target)
+  GTest::gtest_main cudaq-qec cudaq::cudaq)
 add_dependencies(CUDAQXQECUnitTests test_dem_from_kernel)
 gtest_discover_tests(test_dem_from_kernel)
 

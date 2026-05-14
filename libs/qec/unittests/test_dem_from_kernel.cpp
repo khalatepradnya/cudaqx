@@ -7,47 +7,18 @@
  ******************************************************************************/
 
 #include "cudaq/qec/dem.h"
-#include <cudaq.h>
 #include <gtest/gtest.h>
 
-// A kernel with no QEC annotations produces an empty DEM. This validates
-// the full cross-repo data path: cudaq::analysis::compute_dem (CUDA-Q,
-// Stim-backed) -> cudaq::analysis::detector_error_model POD ->
-// cudaq::qec::detail::podToQecDem -> cudaq::qec::detector_error_model
-// (tensor-based).
-//
-// The non-empty case (kernel with cudaq::detector / cudaq::observable_include)
-// requires MLIR-mode compilation and is deferred to the nvq++ integration
-// test layer.
-
-struct TrivialKernel {
-  void operator()() __qpu__ {
-    cudaq::qubit q;
-    cudaq::h(q);
-    cudaq::mz(q);
-  }
-};
-
-// DISABLED: crashes with `free(): invalid pointer` during Stim simulator
-// cleanup (CircuitSimulator.h:1160 "Deallocating simulator state"). Root
-// cause is a cross-DSO memory management issue: the Stim plugin is
-// dlopen'd by libcudaq-analysis.so, allocates simulator state in its own
-// allocator context, and the cleanup path frees it through a different
-// allocator reachable from the test executable. The POD data-transfer
-// path (podToQecDem tests below) is unaffected because it never crosses
-// the allocator boundary. Phase 1.5 finding: the runtime dispatch
-// infrastructure needs DSO-safe allocator discipline before
-// dem_from_kernel can be called from a separately-linked CUDA-QX binary.
-TEST(DemFromKernel, DISABLED_trivialKernelEmptyDem) {
-  cudaq::noise_model noise;
-  auto dem = cudaq::qec::dem_from_kernel(TrivialKernel{}, noise);
-
-  EXPECT_EQ(dem.num_detectors(), 0u);
-  EXPECT_EQ(dem.num_error_mechanisms(), 0u);
-  EXPECT_EQ(dem.num_observables(), 0u);
-  EXPECT_TRUE(dem.error_rates.empty());
-  EXPECT_FALSE(dem.error_ids.has_value());
-}
+// Unit tests for the POD-to-tensor conversion that `cudaq::qec::dem_from_kernel`
+// runs after `cudaq::analysis::compute_dem` returns. End-to-end coverage of
+// `dem_from_kernel` itself (kernel dispatch + Stim DEM extraction + conversion)
+// belongs in an `nvq++`-driven integration test, not here: any kernel functor
+// that calls `cudaq::mz`/`mx`/`my` from a binary not built by `nvq++` (and not
+// opted into `-DCUDAQ_LIBRARY_MODE`) hits the host-mode trap in
+// `runtime/cudaq/qis/qubit_qis.h:437-467` before measurement can dispatch.
+// See Phase 1.5 finding #6 in
+// `cuda-quantum/.cursor/design-docs/qec-det-obs-productization-plan.md` for
+// the full rationale and Phase 2 plan.
 
 TEST(DemFromKernel, podToQecDemEmptyPod) {
   cudaq::analysis::detector_error_model pod;
